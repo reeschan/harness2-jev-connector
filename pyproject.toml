@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harness2-jev-connector"
+version = "0.1.0"
+description = "A Harness² task connector that takes PBI tasks from a jev-mcp server and returns verified diffs and reports."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12,<3.14"
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: POSIX",
+]
+dependencies = [
+    "harness2 @ git+https://github.com/reeschan/harness2.git@main",
+]
+
+[project.entry-points."harness2.task_connectors"]
+jev-mcp = "harness2_jev_connector.connector:connector_from_options"
+
+[tool.setuptools.packages.find]
+include = ["harness2_jev_connector*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
