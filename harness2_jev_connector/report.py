@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from harness2.core.intake_report import report_status
 
@@ -88,11 +88,27 @@ def render_details(
     return "\n".join(parts)
 
 
+def _is_plain_name(name: str) -> bool:
+    """Whether `name` is a plain file name with no separators, `..`, or an absolute path."""
+    if not name or name in {".", ".."}:
+        return False
+    if "/" in name or "\\" in name:
+        return False
+    path = Path(name)
+    if path.name != name:
+        return False
+    return not (path.is_absolute() or PureWindowsPath(name).is_absolute())
+
+
 def read_report(repo: Path, task_id: str, *, report_dir: Path = REPORT_DIR) -> str | None:
     """The body of the report jev-mcp wrote for `task_id`, or None.
 
-    The file is `<repo>/<report_dir>/<task_id>.last.md`; a symlink is not read.
+    The file is `<repo>/<report_dir>/<task_id>.last.md`; a symlink is not read. If
+    `task_id` is not a plain file name (a path separator, `..`, or an absolute path),
+    nothing is read and None is returned.
     """
+    if not _is_plain_name(task_id):
+        return None
     path = repo / report_dir / f"{task_id}.last.md"
     if path.is_symlink() or not path.is_file():
         return None

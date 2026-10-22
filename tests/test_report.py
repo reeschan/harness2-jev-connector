@@ -123,6 +123,28 @@ class ReadReportTest(unittest.TestCase):
         )
         self.assertIsNone(r.read_report(self.repo, "PBI-002"))
 
+    def test_names_that_are_not_plain_file_names_are_none(self):
+        for task_id in ("../x", "a/b", "a\\b", "", ".", ".."):
+            with self.subTest(task_id=task_id):
+                self.assertIsNone(r.read_report(self.repo, task_id))
+
+    def test_relative_traversal_is_not_read_even_if_the_file_exists(self):
+        outside = self.repo / r.REPORT_DIR / ".."
+        outside.mkdir(parents=True, exist_ok=True)
+        (outside / "x.last.md").write_text("状態: OUTSIDE\n", encoding="utf-8")
+        self._write("状態: INSIDE\n")
+        self.assertIsNone(r.read_report(self.repo, "../x"))
+
+    def test_absolute_path_is_not_read_even_if_the_file_exists(self):
+        other = self.tmp / "other"
+        other.mkdir()
+        (other / "x.last.md").write_text("状態: OUTSIDE\n", encoding="utf-8")
+        self.assertIsNone(r.read_report(self.repo, str(other / "x")))
+
+    def test_plain_task_id_is_still_read(self):
+        self._write("状態: DONE\n", task_id="PBI-021.rework-1")
+        self.assertEqual(r.read_report(self.repo, "PBI-021.rework-1"), "状態: DONE")
+
 
 class ReportStatusLineTest(unittest.TestCase):
     def test_status_line(self):
