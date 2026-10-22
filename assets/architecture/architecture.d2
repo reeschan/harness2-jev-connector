@@ -1,0 +1,100 @@
+# harness2-jev-connector architecture
+# __MONO__ is the color of single-color logos. render.py draws a light (000000) and a dark (ffffff) copy.
+# Render: python <arch-diagram>/scripts/render.py assets/architecture/architecture.d2
+direction: right
+
+vars: {
+  d2-config: {
+    layout-engine: elk
+    pad: 40
+  }
+}
+
+classes: {
+  svc: {
+    shape: rectangle
+    style: {
+      border-radius: 12
+      font-size: 15
+    }
+  }
+  ext: {
+    shape: image
+    width: 64
+    height: 64
+    label.near: outside-bottom-center
+  }
+  zone: {
+    style.border-radius: 16
+  }
+  saas: {
+    style: {
+      border-radius: 16
+      stroke-dash: 3
+    }
+  }
+}
+
+designer: "PBI designer" {
+  class: ext
+  icon: https://icons.terrastruct.com/essentials%2F359-users.svg
+}
+
+repo: "source repository" {
+  class: zone
+  icon: https://cdn.simpleicons.org/git
+
+  pbi: "docs/pbi\nPBIs · reports · unchanged records" {
+    class: svc
+    icon: https://icons.terrastruct.com/essentials%2F257-file.svg
+  }
+  tree: "working tree\nreceives the chosen diff" {
+    class: svc
+    icon: https://icons.terrastruct.com/essentials%2F245-folder.svg
+  }
+}
+
+jev: "jev-mcp (loopback HTTP or stdio)" {
+  class: zone
+  icon: https://cdn.simpleicons.org/python
+
+  tools: "MCP tools\nlist · claim · verify · submit · fail" {
+    class: svc
+  }
+}
+
+h2: "harness2-intake" {
+  class: zone
+  icon: https://cdn.simpleicons.org/python
+
+  intake: "IntakeAdapter\nk rollouts · blind selection" {
+    class: svc
+  }
+  wt: "git worktree per rollout\nOpenCode agent" {
+    class: svc
+    icon: https://cdn.simpleicons.org/git
+  }
+
+  conn: "harness2-jev-connector" {
+    class: zone
+    direction: down
+
+    connector: "JevMcpConnector\npoll · deliver · fail · report" {
+      class: svc
+    }
+    judge: "JevVerifyJudge\nn_passed / n_criteria" {
+      class: svc
+    }
+    guard: "workspace policy\nexclude docs/pbi · unchanged guard" {
+      class: svc
+    }
+  }
+}
+
+designer -> repo.pbi: "writes PBIs"
+jev.tools <-> repo.pbi: "reads PBIs ·\nwrites reports"
+h2.conn.connector -> h2.intake: "entry point jev-mcp\nTaskSpec"
+h2.intake -> h2.wt: "rollouts"
+h2.conn.connector <-> jev.tools: "claim · verify ·\nsubmit result"
+h2.conn.judge -> jev.tools: "verify (scoring only)" {style.stroke-dash: 4}
+h2.conn.guard -> repo.tree: "apply chosen diff\nafter the guard"
