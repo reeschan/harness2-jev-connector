@@ -69,7 +69,7 @@ harness2-intake --connector jev-mcp \
 | `url` | なし | jev-mcp の HTTP エンドポイントの URL。例は `http://127.0.0.1:7830/mcp`。`command` の代わりに使います。 |
 | `command` | なし | jev-mcp を stdio で起動するコマンド。文字列かリストで書きます。文字列は `shlex.split` で分けます。 |
 | `timeout` | 60 | MCP 呼び出し 1 回の待ち時間（秒）。`--connector-opt` からは文字列で来るので、float に直します。 |
-| `scrub_env` | なし | エージェントの環境から消す環境変数の名前をカンマ区切りで。秘密を持つ変数を指定します。例は `EXAMPLE_SECRET,ANOTHER_SECRET`。 |
+| `scrub_env` | `TYPESAFE_API_KEY` | エージェントの環境から消す環境変数の名前をカンマ区切りで。秘密を持つ変数を指定します。例は `EXAMPLE_SECRET,ANOTHER_SECRET`。値を渡すと既定値を置き換えます。空の値を渡すと何も消しません。 |
 | `pbi_dir` | `docs/pbi` | PBI のファイルを置くリポジトリ内のディレクトリ。コネクターはこれを diff から外します。 |
 | `runner` | `harness2` | claim のときに記録するランナーの名前。 |
 
@@ -86,7 +86,8 @@ jev-mcp の `verify` は、作業ディレクトリが `--root` の下にある�
 ## コネクターが用意するもの
 
 - `workspace_policy`: `docs/pbi` を diff から外します。
-- `scrub_env`: 指定した変数をエージェントの環境から消します。
+- `scrub_env`: 指定した変数をエージェントの環境から消します。既定では、jev が API キーを読む変数
+  `TYPESAFE_API_KEY` を消します。この変数が要るのは jev-mcp だけです。
 - `judge()`: 実行に対して `verify` を回し、`n_passed`、`n_criteria`、`all_pass` を返します。選定には使いません。
 - `report(task_id)`: jev-mcp がそのタスクについて書いた 5 行の報告。
 - `close()`: MCP クライアントを閉じます。

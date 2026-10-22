@@ -69,7 +69,7 @@ harness2-intake --connector jev-mcp \
 | `url` | none | URL of a jev-mcp HTTP endpoint, for example `http://127.0.0.1:7830/mcp`. Use it instead of `command`. |
 | `command` | none | Command that starts jev-mcp over stdio, as a string or a list. A string is split with `shlex.split`. |
 | `timeout` | 60 | Seconds to wait for one MCP call. A value from `--connector-opt` arrives as a string and is converted to a float. |
-| `scrub_env` | none | Comma-separated names of the environment variables to remove from the agent's environment. Name the variables that hold secrets, for example `EXAMPLE_SECRET,ANOTHER_SECRET`. |
+| `scrub_env` | `TYPESAFE_API_KEY` | Comma-separated names of the environment variables to remove from the agent's environment. Name the variables that hold secrets, for example `EXAMPLE_SECRET,ANOTHER_SECRET`. Pass a value to replace the default; an empty value removes nothing. |
 | `pbi_dir` | `docs/pbi` | Directory in the repository that holds the PBI files. The connector keeps it out of the diff. |
 | `runner` | `harness2` | Runner name that the connector records on a claim. |
 
@@ -86,7 +86,8 @@ rollout's worktree is created under `--work-root`, so pass both `--repo` and `--
 ## What the connector provides
 
 - `workspace_policy`: keeps `docs/pbi` out of the diff.
-- `scrub_env`: removes the named variables from the agent's environment.
+- `scrub_env`: removes the named variables from the agent's environment. By default it removes
+  `TYPESAFE_API_KEY`, the variable jev reads its API key from; only jev-mcp needs it.
 - `judge()`: runs `verify` on a run and returns `n_passed`, `n_criteria` and `all_pass`. Selection
   does not use it.
 - `report(task_id)`: the five-line report that jev-mcp wrote for the task.

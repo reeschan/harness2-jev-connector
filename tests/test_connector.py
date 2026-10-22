@@ -28,7 +28,7 @@ from unittest import mock
 from harness2.benchmarks.intake import IntakeAdapter, run_intake
 from harness2.core import intake_report
 from harness2.core import worktree as wt
-from harness2.core.intake import TaskConnector, resolve_factory, validate_task_spec
+from harness2.core.intake import TaskConnector, capabilities, resolve_factory, validate_task_spec
 from harness2.core.normalize import PassthroughNormalizer, normalize_task
 from harness2.core.proposer import Proposer, Reply
 from harness2.core.spec import ChannelSpec
@@ -41,7 +41,7 @@ from harness2_jev_connector import (
     JevVerifyJudge,
     connector_from_options,
 )
-from harness2_jev_connector.connector import DOMAIN, RUNNER
+from harness2_jev_connector.connector import DEFAULT_SCRUB_ENV, DOMAIN, RUNNER
 
 REAL_UNCHANGED = Path(__file__).resolve().parent / "fixtures" / "unchanged.py"
 CHANNEL = ChannelSpec("opencode", "fake-model")
@@ -464,7 +464,42 @@ class FactoryTest(unittest.TestCase):
         with mock.patch("harness2.plugins.mcp.client_from") as client_from:
             conn = connector_from_options(repo="/repo", command=["server"], timeout=None)
         client_from.assert_called_once_with(url=None, command=["server"], timeout=60)
+        self.assertEqual(conn.scrub_env, DEFAULT_SCRUB_ENV)
+
+    def test_default_scrub_env_is_the_api_key_name(self):
+        conn = JevMcpConnector(FakeClient(), "/repo")
+        self.assertEqual(conn.scrub_env, ("TYPESAFE_API_KEY",))
+        self.assertEqual(conn.scrub_env, DEFAULT_SCRUB_ENV)
+
+    def test_options_without_scrub_env_use_the_default(self):
+        with mock.patch("harness2.plugins.mcp.client_from", return_value=FakeClient()):
+            conn = connector_from_options(repo="/repo", url="http://127.0.0.1:7830/mcp")
+        self.assertEqual(conn.scrub_env, DEFAULT_SCRUB_ENV)
+
+    def test_scrub_env_string_replaces_the_default(self):
+        with mock.patch("harness2.plugins.mcp.client_from", return_value=FakeClient()):
+            conn = connector_from_options(
+                repo="/repo",
+                url="http://127.0.0.1:7830/mcp",
+                scrub_env="EXAMPLE_SECRET,ANOTHER_SECRET",
+            )
+        self.assertEqual(conn.scrub_env, ("EXAMPLE_SECRET", "ANOTHER_SECRET"))
+        for name in DEFAULT_SCRUB_ENV:
+            self.assertNotIn(name, conn.scrub_env)
+
+    def test_empty_scrub_env_removes_nothing(self):
+        with mock.patch("harness2.plugins.mcp.client_from", return_value=FakeClient()):
+            conn = connector_from_options(
+                repo="/repo", url="http://127.0.0.1:7830/mcp", scrub_env=""
+            )
         self.assertEqual(conn.scrub_env, ())
+
+    def test_scrub_env_sequence_is_used_as_is(self):
+        with mock.patch("harness2.plugins.mcp.client_from", return_value=FakeClient()):
+            conn = connector_from_options(
+                repo="/repo", url="http://127.0.0.1:7830/mcp", scrub_env=["EXAMPLE_SECRET"]
+            )
+        self.assertEqual(conn.scrub_env, ("EXAMPLE_SECRET",))
 
 
 class EntryPointTest(unittest.TestCase):
@@ -482,6 +517,11 @@ class CapabilitiesTest(unittest.TestCase):
         conn = JevMcpConnector(FakeClient(), tmp)
         self.assertEqual(conn.report(REPORT), "状態: DONE\n\nbody")
         self.assertIsNone(conn.report("PBI-404"))
+
+    def test_capabilities_report_the_default_scrub_env(self):
+        caps = capabilities(JevMcpConnector(FakeClient(), "/repo"))
+        self.assertEqual(tuple(caps.scrub_env), DEFAULT_SCRUB_ENV)
+        self.assertIn("TYPESAFE_API_KEY", caps.scrub_env)
 
     def test_close_closes_the_client(self):
         client = FakeClient()

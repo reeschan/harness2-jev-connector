@@ -43,6 +43,8 @@ from . import policy, report
 RUNNER = "harness2"
 DOMAIN = "pbi"
 UNRESOLVED_MAX = 2_000
+# jev reads its API key from this variable; only jev-mcp needs it, so the agent drops it.
+DEFAULT_SCRUB_ENV = ("TYPESAFE_API_KEY",)
 
 DELIVERABLE = {
     "what": "the code change that implements the PBI, collected from the repository worktree",
@@ -97,7 +99,12 @@ def _verify_counts(results: Any) -> tuple[list[Mapping], int, int]:
 
 
 class JevMcpConnector:
-    """A TaskConnector for the PBIs of one repository, through a jev-mcp client."""
+    """A TaskConnector for the PBIs of one repository, through a jev-mcp client.
+
+    `scrub_env` names the environment variables that are removed from the agent's environment.
+    It defaults to `DEFAULT_SCRUB_ENV` (the variable jev reads its API key from, which only
+    jev-mcp needs); pass another sequence to replace it, or `()` to remove nothing.
+    """
 
     def __init__(
         self,
@@ -108,7 +115,7 @@ class JevMcpConnector:
         locate: Locate | None = None,
         runner: str = RUNNER,
         pbi_dir: str = policy.PBI_DIR,
-        scrub_env: Sequence[str] = (),
+        scrub_env: Sequence[str] = DEFAULT_SCRUB_ENV,
     ) -> None:
         self.client = client
         self.repo = str(repo)
@@ -285,7 +292,7 @@ def connector_from_options(
     mode: str = "agg",
     locate: Locate | None = None,
     timeout: float | str | None = 60,
-    scrub_env: Sequence[str] | str = (),
+    scrub_env: Sequence[str] | str | None = None,
     pbi_dir: str = policy.PBI_DIR,
     runner: str = RUNNER,
 ) -> JevMcpConnector:
@@ -294,6 +301,10 @@ def connector_from_options(
     Values that `--connector-opt key=value` delivers as strings are converted here: `command`
     is split with `shlex.split`, `timeout` becomes a float (None becomes 60), and `scrub_env`
     is split on commas, stripped, and emptied of blank entries.
+
+    By default (`scrub_env` is None) the connector removes `DEFAULT_SCRUB_ENV`, the variable
+    jev reads its API key from, from the agent's environment. Pass `scrub_env` to replace that
+    default; an empty string (or an empty sequence) removes nothing.
     """
     if isinstance(command, str):
         command = shlex.split(command)
@@ -301,7 +312,9 @@ def connector_from_options(
         timeout = 60
     elif isinstance(timeout, str):
         timeout = float(timeout)
-    if isinstance(scrub_env, str):
+    if scrub_env is None:
+        scrub_env = DEFAULT_SCRUB_ENV
+    elif isinstance(scrub_env, str):
         scrub_env = tuple(part.strip() for part in scrub_env.split(",") if part.strip())
     client = mcp.client_from(url=url, command=command, timeout=timeout)
     return JevMcpConnector(
