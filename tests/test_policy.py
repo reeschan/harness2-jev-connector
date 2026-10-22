@@ -35,7 +35,7 @@ from harness2_jev_connector.policy import (
 )
 
 # The real checker, copied into each test source repository.
-REAL_UNCHANGED = Path(__file__).resolve().parents[1] / "docs" / "pbi" / "tools" / "unchanged.py"
+REAL_UNCHANGED = Path(__file__).resolve().parent / "fixtures" / "unchanged.py"
 # The repository location variables `harness2.core.worktree.git_env()` drops.
 LOCATION_VARS = (
     "GIT_DIR",

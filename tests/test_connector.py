@@ -43,7 +43,7 @@ from harness2_jev_connector import (
 )
 from harness2_jev_connector.connector import DOMAIN, RUNNER
 
-REAL_UNCHANGED = Path(__file__).resolve().parents[1] / "docs" / "pbi" / "tools" / "unchanged.py"
+REAL_UNCHANGED = Path(__file__).resolve().parent / "fixtures" / "unchanged.py"
 CHANNEL = ChannelSpec("opencode", "fake-model")
 REPORT = "PBI-007"
 
