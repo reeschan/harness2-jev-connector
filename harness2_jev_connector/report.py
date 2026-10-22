@@ -105,12 +105,16 @@ def read_report(repo: Path, task_id: str, *, report_dir: Path = REPORT_DIR) -> s
 
     The file is `<repo>/<report_dir>/<task_id>.last.md`; a symlink is not read. If
     `task_id` is not a plain file name (a path separator, `..`, or an absolute path),
-    nothing is read and None is returned.
+    nothing is read and None is returned. Nothing is read either when a directory on
+    the way to the file is a symlink that points outside `report_dir`.
     """
     if not _is_plain_name(task_id):
         return None
-    path = repo / report_dir / f"{task_id}.last.md"
+    report_root = repo.resolve() / report_dir
+    path = report_root / f"{task_id}.last.md"
     if path.is_symlink() or not path.is_file():
+        return None
+    if path.resolve().parent != report_root:
         return None
     return path.read_text(encoding="utf-8").strip("\n")
 

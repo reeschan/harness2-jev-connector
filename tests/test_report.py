@@ -15,6 +15,7 @@
 
 """Tests for the details body, reading a report, and its status line."""
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,6 +23,23 @@ from pathlib import Path
 from harness2.core.schedule import TaskResult
 
 from harness2_jev_connector import report as r
+
+
+def _symlinks_supported() -> bool:
+    """Whether this environment lets us create a symlink to a directory."""
+    if not hasattr(os, "symlink"):
+        return False
+    with tempfile.TemporaryDirectory() as name:
+        root = Path(name)
+        try:
+            (root / "target").mkdir()
+            (root / "link").symlink_to(root / "target", target_is_directory=True)
+        except (OSError, NotImplementedError):
+            return False
+    return True
+
+
+SYMLINKS = _symlinks_supported()
 
 
 def _summary(run_dir="", *, errors=(), status="ok", mode="agg", why="best", label="c1"):
@@ -144,6 +162,38 @@ class ReadReportTest(unittest.TestCase):
     def test_plain_task_id_is_still_read(self):
         self._write("状態: DONE\n", task_id="PBI-021.rework-1")
         self.assertEqual(r.read_report(self.repo, "PBI-021.rework-1"), "状態: DONE")
+
+    def test_plain_relative_report_dir_is_still_read(self):
+        self._write("状態: DONE\n", task_id="PBI-009")
+        self.assertEqual(r.read_report(self.repo, "PBI-009"), "状態: DONE")
+
+    def test_absolute_report_dir_is_read(self):
+        with tempfile.TemporaryDirectory() as name:
+            report_dir = Path(name).resolve()
+            (report_dir / "x.last.md").write_text("状態: ABS\n", encoding="utf-8")
+            self.assertEqual(
+                r.read_report(self.repo, "x", report_dir=report_dir),
+                "状態: ABS",
+            )
+
+    @unittest.skipUnless(SYMLINKS, "symlinks are not available")
+    def test_symlinked_report_dir_is_not_read(self):
+        outside = self.tmp / "outside"
+        outside.mkdir()
+        (outside / "x.last.md").write_text("状態: OUTSIDE\n", encoding="utf-8")
+        link = self.repo / r.REPORT_DIR
+        link.parent.mkdir(parents=True)
+        link.symlink_to(outside, target_is_directory=True)
+        self.assertIsNone(r.read_report(self.repo, "x"))
+
+    @unittest.skipUnless(SYMLINKS, "symlinks are not available")
+    def test_symlinked_parent_of_report_dir_is_not_read(self):
+        outside = self.tmp / "outside"
+        (outside / "pbi" / "mcp").mkdir(parents=True)
+        (outside / "pbi" / "mcp" / "x.last.md").write_text("状態: OUTSIDE\n", encoding="utf-8")
+        self.repo.mkdir()
+        (self.repo / "docs").symlink_to(outside, target_is_directory=True)
+        self.assertIsNone(r.read_report(self.repo, "x"))
 
 
 class ReportStatusLineTest(unittest.TestCase):
