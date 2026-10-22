@@ -15,7 +15,7 @@ classifiers = [
     "Operating System :: POSIX",
 ]
 dependencies = [
-    "harness2 @ git+https://github.com/reeschan/harness2.git@main",
+    "harness2 @ git+https://github.com/reeschan/harness2.git@7765b2eac687167987806453d34a2af2d956adc4",
 ]
 
 [project.entry-points."harness2.task_connectors"]
@@ -27,6 +27,8 @@ include = ["harness2_jev_connector*"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+# A verbatim copy of an outside file; it is kept byte for byte.
+extend-exclude = ["tests/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

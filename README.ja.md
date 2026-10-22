@@ -30,7 +30,7 @@ harness2-jev-connector は、[harness2](https://github.com/reeschan/harness2) �
 pip install "harness2-jev-connector @ git+https://github.com/reeschan/harness2-jev-connector.git"
 ```
 
-harness2 は依存として git から入ります。
+harness2 は依存として git から入ります。入るのは、このパッケージがテストに使ったコミットです（`pyproject.toml` を参照）。
 
 ## 使い方
 

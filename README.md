@@ -30,7 +30,7 @@ The diagram source is `assets/architecture/architecture.d2`. Redraw it with the 
 pip install "harness2-jev-connector @ git+https://github.com/reeschan/harness2-jev-connector.git"
 ```
 
-harness2 is installed from git as a dependency.
+harness2 is installed from git as a dependency, pinned to the commit this package is tested against (see `pyproject.toml`).
 
 ## Usage
 
