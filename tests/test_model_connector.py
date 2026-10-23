@@ -581,6 +581,33 @@ class RunSessionTest(unittest.TestCase):
         self.assertGreaterEqual(seen[-1], 600)
         self.assertEqual(client.timeout, 60)
 
+    def test_concurrent_sessions_each_see_their_own_client_timeout(self):
+        client = RunClient(delay=0.15)
+        client.timeout = 60
+        seen = {}
+        original = client.call_tool
+
+        def spy(name, arguments):
+            seen[arguments["runner"]] = client.timeout
+            return original(name, arguments)
+
+        client.call_tool = spy
+        conn, choices = self.start(client)
+        walls = {"claude": 600, "opencode": 100}
+        threads = [
+            threading.Thread(
+                target=conn.run_session,
+                args=(Role.IMPROVER, self.request(choice, wall=walls[choice.runner])),
+            )
+            for choice in choices
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(seen, {"claude": 630, "opencode": 130})
+        self.assertEqual(client.timeout, 60)
+
     def test_client_timeout_is_restored_after_an_error(self):
         client = RunClient()
         client.timeout = 60

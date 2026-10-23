@@ -173,6 +173,7 @@ class JevModelConnector:
         self._task_id: str | None = None
         self._run_guard = threading.Lock()
         self._run_locks: dict[tuple[str, str], threading.Lock] = {}
+        self._timeout_lock = threading.Lock()
 
     def _declared(self) -> dict[str, FenceDeclaration]:
         out: dict[str, FenceDeclaration] = {}
@@ -281,13 +282,8 @@ class JevModelConnector:
             pass
         started = time.monotonic()
         with self._run_lock(task_id, runner):
-            # `run` can take as long as `wall`; the client must wait for it, and only for it.
-            client_timeout = getattr(self.client, "timeout", None)
-            raised = isinstance(client_timeout, (int, float)) and client_timeout < request.wall + 30
-            if raised:
-                self.client.timeout = request.wall + 30  # type: ignore[attr-defined]
             try:
-                answer = self.client.call_tool("run", arguments)
+                answer = self._call_run(arguments, request.wall)
             except McpError as exc:
                 return SessionResult(
                     "",
@@ -297,9 +293,6 @@ class JevModelConnector:
                     unavailable=isinstance(exc, McpToolError),
                     runner=runner,
                 )
-            finally:
-                if raised:
-                    self.client.timeout = client_timeout  # type: ignore[attr-defined]
         wall = time.monotonic() - started
         answer = answer if isinstance(answer, Mapping) else {}
         code = answer.get("code")
@@ -333,6 +326,24 @@ class JevModelConnector:
             unavailable=unavailable,
             runner=runner,
         )
+
+    def _call_run(self, arguments: dict[str, Any], wall: float) -> Any:
+        """Call `run` with a client timeout that covers `wall`, and only for this call.
+
+        harness2's `call_tool` takes no timeout per call, so the shared `client.timeout` is raised
+        and put back. Read, raise, call and restore happen under one lock of the whole client, so
+        a concurrent session cannot restore a value under another's call.
+        """
+        with self._timeout_lock:
+            client_timeout = getattr(self.client, "timeout", None)
+            raised = isinstance(client_timeout, (int, float)) and client_timeout < wall + 30
+            if raised:
+                self.client.timeout = wall + 30  # type: ignore[attr-defined]
+            try:
+                return self.client.call_tool("run", arguments)
+            finally:
+                if raised:
+                    self.client.timeout = client_timeout  # type: ignore[attr-defined]
 
     def _run_lock(self, task_id: str, runner: str) -> threading.Lock:
         with self._run_guard:
