@@ -15,11 +15,14 @@ classifiers = [
     "Operating System :: POSIX",
 ]
 dependencies = [
-    "harness2 @ git+https://github.com/reeschan/harness2.git@7765b2eac687167987806453d34a2af2d956adc4",
+    "harness2 @ git+https://github.com/reeschan/harness2.git@be0329ba263e315be047b9a355179be3d07495c6",
 ]
 
 [project.entry-points."harness2.task_connectors"]
 jev-mcp = "harness2_jev_connector.connector:connector_from_options"
+
+[project.entry-points."harness2.model_connectors"]
+jev = "harness2_jev_connector.models:model_connector_from_options"
 
 [tool.setuptools.packages.find]
 include = ["harness2_jev_connector*"]
