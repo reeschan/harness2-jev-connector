@@ -559,7 +559,7 @@ class WorktreeLauncherStub:
         self.source = source
         self.calls = 0
 
-    def launch(self, *, workspace, prompt, install, run_dir, timeout):
+    def launch(self, *, workspace, prompt, install, run_dir, timeout, task_id=""):
         self.calls += 1
         worktree = run_dir / wt.WORKTREE_DIRNAME
         base = wt.prepare_worktree(self.source, worktree)

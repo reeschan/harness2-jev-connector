@@ -1,0 +1,18 @@
+{
+  "use": "claude-only",
+  "templates": {
+    "claude-only": {
+      "executor": [{"jev": "haiku", "runners": ["opencode"]}],
+      "improver": [
+        {"runner": "claude", "model": "sonnet", "setting": "edit-only"}
+      ]
+    },
+    "cheap": {
+      "executor": [{"jev": "haiku", "runners": ["opencode"]}],
+      "improver": [
+        {"runner": "claude", "model": "sonnet", "setting": "edit-only"},
+        {"jev": "haiku", "runners": ["opencode"], "setting": "edit-only"}
+      ]
+    }
+  }
+}
