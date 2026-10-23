@@ -1,6 +1,7 @@
 # harness2-jev-connector architecture
 # __MONO__ is the color of single-color logos. render.py draws a light (000000) and a dark (ffffff) copy.
 # Render: python <arch-diagram>/scripts/render.py assets/architecture/architecture.d2
+# 2026-10-23: added the model connector (templates, routes, run_session, fences, record) and the Jev runners it uses
 direction: right
 
 vars: {
@@ -58,7 +59,7 @@ jev: "jev-mcp (loopback HTTP or stdio)" {
   class: zone
   icon: https://cdn.simpleicons.org/python
 
-  tools: "MCP tools\nlist · claim · verify · submit · fail" {
+  tools: "MCP tools\ntasks: list · claim · verify · submit · fail\nJev steps: route · run · record" {
     class: svc
   }
 }
@@ -68,6 +69,9 @@ h2: "harness2-intake" {
   icon: https://cdn.simpleicons.org/python
 
   intake: "IntakeAdapter\nk rollouts · blind selection" {
+    class: svc
+  }
+  improver: "improver (Proposer)\nconnector channel" {
     class: svc
   }
   wt: "git worktree per rollout\nOpenCode agent" {
@@ -88,7 +92,19 @@ h2: "harness2-intake" {
     guard: "workspace policy\nexclude docs/pbi · unchanged guard" {
       class: svc
     }
+    models: "JevModelConnector\nroutes · run_session · fences · record" {
+      class: svc
+    }
   }
+}
+
+config: "models.json\nnamed templates · use" {
+  class: svc
+  shape: page
+}
+
+runners: "Jev runners\nclaude · opencode (edit-only setting)" {
+  class: saas
 }
 
 designer -> repo.pbi: "writes PBIs"
@@ -98,3 +114,8 @@ h2.intake -> h2.wt: "rollouts"
 h2.conn.connector <-> jev.tools: "claim · verify ·\nsubmit result"
 h2.conn.judge -> jev.tools: "verify (scoring only)" {style.stroke-dash: 4}
 h2.conn.guard -> repo.tree: "apply chosen diff\nafter the guard"
+config -> h2.conn.models: "template"
+h2.conn.models -> h2.intake: "executor models\n(opencode)"
+h2.improver -> h2.conn.models: "run_session"
+h2.conn.models <-> jev.tools: "route · run ·\nrecord"
+jev.tools -> runners: "one try\nper run" {style.stroke-dash: 4}
