@@ -26,7 +26,7 @@ harness2-jev-connector は、[harness2](https://github.com/reeschan/harness2) �
 - POSIX: Linux または macOS。Windows では WSL を使います。
 - Python 3.12〜3.13。
 - harness2。下のインストールで依存として入ります。
-- jev-mcp: pbi-orchestration-jev スキルに入っている `jev_mcp.py` サーバー。
+- jev-mcp: [Atelier](https://github.com/reeschan/atelier) スキルに入っている `jev_mcp.py` サーバー (`skills/atelier/jev_mcp.py`。Atelier の旧名は pbi-orchestration-jev、Jev)。
 
 ## インストール
 
@@ -134,10 +134,11 @@ jev-mcp は、順番待ちを持ち、Jev を動かすサーバーです。タ�
 
 リポジトリと Jev の home は別の場所です。リポジトリの `docs/pbi` には、PBI のファイル・報告・
 検証の記録があり、jev-mcp が読み書きします。Jev の home には `routing.json`・テンプレート・
-`agents.json` があり、Jev はそれを `PBI_HOME` で見つけ、`PBI_HOME` が無ければ
-`$XDG_CONFIG_HOME/pbi-orchestration-jev` で見つけます。コネクターは `docs/pbi` をどの diff からも
-外し、opencode を分離するときは `PBI_HOME` を固定して、`XDG_CONFIG_HOME` を向け直しても Jev の
-home が動かないようにします。
+`agents.json` があり、Atelier はそれを `ATELIER_HOME` (旧名の `PBI_HOME` も読む) で見つけ、
+無ければ `$XDG_CONFIG_HOME/atelier` で見つけます。そこが無く旧名の
+`$XDG_CONFIG_HOME/pbi-orchestration-jev` だけがあれば、旧名を使います。コネクターは `docs/pbi`
+をどの diff からも外し、opencode を分離するときは `ATELIER_HOME` を固定して、`XDG_CONFIG_HOME`
+を向け直しても Atelier の home が動かないようにします。
 
 harness2 がモデルのコネクターをどう呼ぶか（`routes`・`run_session`・`fences`・`record` と、
 それぞれが返すもの）は、harness2 の
@@ -233,13 +234,13 @@ sequenceDiagram
 
 - harness2。このパッケージのインストールで依存として入ります。
 - このパッケージ（`harness2-jev-connector`）。
-- jev-mcp。pbi-orchestration-jev スキルに入っている `jev_mcp.py` サーバー。
+- jev-mcp。Atelier スキルに入っている `jev_mcp.py` サーバー (`skills/atelier/jev_mcp.py`)。
 - Claude Code。`claude` の実行先として使います。
 - opencode。実行役と `opencode` の実行先として使います。
 
 stdio で起動すると、モデルのコネクターは、自分が起動する jev-mcp を分離できます。子の環境から
 harness2 の資格情報を外し、opencode の設定の変数を空のディレクトリに向けます。これが効いている
-ときだけ、opencode の柵を申告できます。同じ環境で、`PBI_HOME` により Jev の home も元の場所に
+ときだけ、opencode の柵を申告できます。同じ環境で、`ATELIER_HOME` により Atelier の home も元の場所に
 残ります。タスクのコネクターにも同じ root を渡します。
 
 ```sh
@@ -344,10 +345,9 @@ opencode は利用者全体の設定とその MCP サーバーも読みます。
 - `XDG_CONFIG_HOME` と `OPENCODE_CONFIG_DIR` を空の一時ディレクトリに向けます。コネクターが
   それを作り、`close` で消します。
 - `OPENCODE_CONFIG_CONTENT` と `OPENCODE_PERMISSION` を子の環境から外します。
-- `PBI_HOME` を、利用者の環境が指す Jev の home に固定します。既にある `PBI_HOME`、無ければ
-  `$XDG_CONFIG_HOME/pbi-orchestration-jev`、それも無ければ
-  `~/.config/pbi-orchestration-jev` です。`PBI_TEMPLATES_HOME` が設定されていればそのままに
-  します。
+- `ATELIER_HOME` を、利用者の環境が指す Atelier の home に固定します。`$XDG_CONFIG_HOME/atelier`
+  (無ければ `~/.config/atelier`) で、そこが無く旧名の `pbi-orchestration-jev` だけがあれば旧名です。
+  `ATELIER_HOME`・`PBI_HOME`・`PBI_TEMPLATES_HOME` のどれかが設定されていれば、何も固定しません。
 - harness2 の資格情報を外します。名前が `_KEY`・`_TOKEN`・`_SECRET` で終わる `HARNESS2_*` の
   変数と、`GOOGLE_APPLICATION_CREDENTIALS`・`GOOGLE_CLOUD_PROJECT`・
   `HARNESS2_VERTEX_PROJECT` です。
@@ -387,6 +387,60 @@ HTTP では、コネクターは jev-mcp の環境を選べないので、openco
 
 **HTTP で opencode が使われない。** HTTP の jev-mcp は環境をコネクターが選べないので、コネクターは
 opencode の柵を申告しません。opencode を改善役に使うときは、stdio（`command=`）で起動します。
+
+## Atelier の case の作り直し
+
+Atelier の `export_cases.py` は、判定した PBI ごとに正規化した case を `docs/pbi/cases.jsonl` (と
+保全先の `runs.jsonl` の隣) に書きます。タスクのコネクター `atelier-cases` はそれを作り直し、
+差し戻された PBI で Atelier の指示を harness2 に磨かせます。case の要素は harness2 の構成要素に
+1 つずつ当てます。
+
+| case | harness2 |
+| --- | --- |
+| `harness.system_prompt` (worker.md) | 土台のハーネスの `systemprompt.md` (`base_harness()`) |
+| `harness.guardrails` (効いていた CLAUDE.md) | `guardrails.md`。リポジトリから読み、版が変わっていれば注記し、always-on の上限を超えるものは外す |
+| `harness.memory` (ref) | タスクの依頼文の Refs の節。要旨を添える |
+| `task` (PBI の節) | タスクの依頼文 |
+| `task.verify`・`task.acceptance`・`private.rework` | 非公開の基準。採点者だけが読む |
+
+取り上げる case は、`base_commit` が `--repo` の HEAD で、差し戻されたもの (`include=all` なら
+全部)、`depends_on` が無いもの (`dependent=true` なら有っても)、選んだ worker の版 (`worker`、
+無ければいちばん新しい版) のものです。元のコミットの worktree で動かします。
+
+```sh
+git -C <repo> worktree add <replay-dir> <base_commit>
+harness2-intake --connector atelier-cases \
+  --connector-opt cases=<path>/cases.jsonl \
+  --repo <replay-dir> --work-root <work-root>
+```
+
+ソースには何も戻しません。`deliver` は `<out>/<タスク id>.json` (状態、選ばれた実行の summary と
+採用したハーネスの場所) と `<out>/<タスク id>.diff` を書きます。`out` の既定は最初の cases の
+ファイルの隣の `replay/` です。採点者は選ばれた実行の worktree で `verify <n>` の基準を走らせ、
+終了コード 0 の数を数えます。
+
+| オプション | 既定値 | 意味 |
+| --- | --- | --- |
+| `cases` | 必須 | `cases.jsonl` のパス。カンマで複数 |
+| `out` | 最初のファイルの隣の `replay/` | 結果の置き場所 |
+| `include` | `sent-back` | `sent-back` か `all` |
+| `worker` | いちばん新しい版 | 作り直す worker.md の版 (16 進 12 文字) |
+| `dependent` | `false` | `depends_on` のある case も取る |
+
+採用したハーネス (結果の `harness_dir`) を worker.md と CLAUDE.md と比べ、Atelier の何を直すかを
+決めます。直すのは人で、プルリクエストで直します。
+
+## 差し戻しの集計
+
+`atelier-rework-report` は Atelier の `runs.jsonl` (`--archive` なら保全先のすべて) を読み、
+一発合格率・差し戻し率・停止率、差し戻しの原因 (指示の側の `spec`・`convention`・`scope`・
+`memory` と、`model`・`env`)、shared-memory の違反・Refs の読み漏れ・Do not touch の変更の
+割合、それらの worker.md の版別と最初のモデル別の表、指示の側の原因の新しい行 (作り直す候補)
+を出します。`--json` で同じものを JSON で出します。
+
+```sh
+atelier-rework-report --archive
+```
 
 ## `--root` の決まり
 

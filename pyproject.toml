@@ -15,11 +15,15 @@ classifiers = [
     "Operating System :: POSIX",
 ]
 dependencies = [
-    "harness2 @ git+https://github.com/reeschan/harness2.git@be0329ba263e315be047b9a355179be3d07495c6",
+    "harness2 @ git+https://github.com/reeschan/harness2.git@b3f2516906029cc3a2be7aebb354704e18a49ff0",
 ]
+
+[project.scripts]
+atelier-rework-report = "harness2_jev_connector.rework_report:main"
 
 [project.entry-points."harness2.task_connectors"]
 jev-mcp = "harness2_jev_connector.connector:connector_from_options"
+atelier-cases = "harness2_jev_connector.cases:cases_connector_from_options"
 
 [project.entry-points."harness2.model_connectors"]
 jev = "harness2_jev_connector.models:model_connector_from_options"
@@ -35,3 +39,7 @@ extend-exclude = ["tests/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Japanese text, as in Atelier's own reports: ruff counts each character as two columns.
+"harness2_jev_connector/rework_report.py" = ["E501"]

@@ -712,8 +712,9 @@ class IsolationTest(unittest.TestCase):
         self.assertEqual(env["OPENCODE_CONFIG_DIR"], str(config_dir))
         self.assertNotIn("OPENCODE_CONFIG_CONTENT", env)
         self.assertNotIn("OPENCODE_PERMISSION", env)
-        # Jev still finds its home where the user's environment points.
-        self.assertEqual(env["PBI_HOME"], "/home/u/.config/pbi-orchestration-jev")
+        # Atelier still finds its home where the user's environment points.
+        self.assertEqual(env["ATELIER_HOME"], "/home/u/.config/atelier")
+        self.assertNotIn("PBI_HOME", env)
         self.assertEqual(env["XDG_DATA_HOME"], "/home/u/.local/share")
         self.assertEqual(env["PATH"], "/bin")
         self.assertEqual(env["HARNESS2_WORKERS"], "4")
@@ -723,6 +724,25 @@ class IsolationTest(unittest.TestCase):
         self.assertEqual(list(conn.fences()), ["opencode"])
         conn.close()
         self.assertFalse(config_dir.exists())
+
+    def test_atelier_home_falls_back_to_the_old_name_only_when_it_alone_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.assertEqual(jev_models.atelier_home(root), root / "atelier")
+            (root / "pbi-orchestration-jev").mkdir()
+            self.assertEqual(jev_models.atelier_home(root), root / "pbi-orchestration-jev")
+            (root / "atelier").mkdir()
+            self.assertEqual(jev_models.atelier_home(root), root / "atelier")
+
+    def test_a_home_variable_already_set_is_left_alone(self):
+        for name in ("ATELIER_HOME", "PBI_HOME", "PBI_TEMPLATES_HOME"):
+            env = jev_models.child_environment(
+                {"XDG_CONFIG_HOME": "/home/u/.config", name: "/h"}, config_dir="/empty"
+            )
+            with self.subTest(name=name):
+                self.assertEqual(env[name], "/h")
+                if name != "ATELIER_HOME":
+                    self.assertNotIn("ATELIER_HOME", env)
 
     def test_isolation_off_keeps_config_but_not_credentials(self):
         conn, made = self.make(command="jev-mcp", isolate_opencode="false")

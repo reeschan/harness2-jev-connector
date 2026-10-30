@@ -25,7 +25,7 @@ The diagram source is `assets/architecture/architecture.d2`. Redraw it with the 
 - POSIX: Linux or macOS. On Windows, use WSL.
 - Python 3.12 to 3.13.
 - harness2. The install below brings it in as a dependency.
-- jev-mcp: the `jev_mcp.py` server that ships with the pbi-orchestration-jev skill.
+- jev-mcp: the `jev_mcp.py` server that ships with the [Atelier](https://github.com/reeschan/atelier) skill (`skills/atelier/jev_mcp.py`; Atelier was called pbi-orchestration-jev, then Jev).
 
 ## Install
 
@@ -137,10 +137,11 @@ headless) and `opencode`.
 
 The repository and Jev's home are two different places. `docs/pbi` in the repository holds the
 PBI files, the reports and the verification records; jev-mcp reads and writes them. Jev's home
-holds its `routing.json`, templates and `agents.json`; Jev finds it through `PBI_HOME`, or
-through `$XDG_CONFIG_HOME/pbi-orchestration-jev` when `PBI_HOME` is unset. The connector keeps
-`docs/pbi` out of every diff and, when it isolates opencode, pins `PBI_HOME` so that redirecting
-`XDG_CONFIG_HOME` does not move Jev's home.
+holds its `routing.json`, templates and `agents.json`; Atelier finds it through `ATELIER_HOME`
+(or the old `PBI_HOME`), else `$XDG_CONFIG_HOME/atelier`, falling back to the old
+`$XDG_CONFIG_HOME/pbi-orchestration-jev` when only that one exists. The connector keeps
+`docs/pbi` out of every diff and, when it isolates opencode, pins `ATELIER_HOME` so that
+redirecting `XDG_CONFIG_HOME` does not move Atelier's home.
 
 How harness2 itself calls a model connector — `routes`, `run_session`, `fences`, `record` and
 what each must return — is in harness2's
@@ -240,14 +241,14 @@ Install these:
 
 - harness2. The install of this package brings it in as a dependency.
 - this package, `harness2-jev-connector`.
-- jev-mcp, the `jev_mcp.py` server that ships with the pbi-orchestration-jev skill.
+- jev-mcp, the `jev_mcp.py` server that ships with the Atelier skill (`skills/atelier/jev_mcp.py`).
 - Claude Code, for the `claude` runner.
 - opencode, for the executor and for the `opencode` runner.
 
 A stdio start lets the model connector isolate the jev-mcp it starts. It removes harness2's
 credentials from the child's environment and points opencode's settings variables at an empty
 directory, which is what makes opencode's fence declarable. The same environment keeps Jev's
-home in place through `PBI_HOME`. Pass the same roots to the task connector:
+home in place through `ATELIER_HOME`. Pass the same roots to the task connector:
 
 ```sh
 harness2-intake --connector jev-mcp \
@@ -355,9 +356,10 @@ session, the model connector isolates the jev-mcp child it starts over stdio. Wi
 - `XDG_CONFIG_HOME` and `OPENCODE_CONFIG_DIR` point at an empty temporary directory. The
   connector makes it and removes it on `close`.
 - `OPENCODE_CONFIG_CONTENT` and `OPENCODE_PERMISSION` are removed from the child's environment.
-- `PBI_HOME` is pinned to the Jev home the user's environment points at: the existing
-  `PBI_HOME`, else `$XDG_CONFIG_HOME/pbi-orchestration-jev`, else
-  `~/.config/pbi-orchestration-jev`. `PBI_TEMPLATES_HOME`, when set, is left as it is.
+- `ATELIER_HOME` is pinned to the Atelier home the user's environment points at:
+  `$XDG_CONFIG_HOME/atelier` (else `~/.config/atelier`), or the old `pbi-orchestration-jev`
+  folder there when only that one exists. When `ATELIER_HOME`, `PBI_HOME` or
+  `PBI_TEMPLATES_HOME` is already set, nothing is pinned.
 - harness2's credentials are removed: the `HARNESS2_*` variables whose names end in `_KEY`,
   `_TOKEN` or `_SECRET`, plus `GOOGLE_APPLICATION_CREDENTIALS`, `GOOGLE_CLOUD_PROJECT` and
   `HARNESS2_VERTEX_PROJECT`.
@@ -400,6 +402,61 @@ every candidate is unusable the attempt ends with `no fenced improver model: ...
 **opencode is never used over HTTP.** The connector cannot choose an HTTP jev-mcp's
 environment, so it does not declare opencode's fence. Use a stdio start (`command=`) when an
 opencode improver is wanted.
+
+## Replaying Atelier's cases
+
+Atelier's `export_cases.py` writes one normalized case per judged PBI to `docs/pbi/cases.jsonl`
+(and next to `runs.jsonl` in its archive). The task connector `atelier-cases` replays them, so
+harness2 can refine Atelier's own instructions on the PBIs that were sent back. Each element of
+a case goes to one harness2 component:
+
+| Case | harness2 |
+| --- | --- |
+| `harness.system_prompt` (worker.md) | `systemprompt.md` of the starting harness (`base_harness()`) |
+| `harness.guardrails` (the CLAUDE.md files that applied) | `guardrails.md`, read from the repository; a file whose version changed is noted, one over the always-on cap is left out |
+| `harness.memory` (refs) | the Refs section of the task's prompt, with each gist |
+| `task` (the PBI's sections) | the task's prompt |
+| `task.verify`, `task.acceptance`, `private.rework` | private criteria; only the judge reads them |
+
+A case is taken up only when its `base_commit` is the HEAD of `--repo`, it was sent back (unless
+`include=all`), it has no `depends_on` (unless `dependent=true`), and its worker version is the
+one chosen (`worker`, else the newest). Run the replay in a worktree of the base commit:
+
+```sh
+git -C <repo> worktree add <replay-dir> <base_commit>
+harness2-intake --connector atelier-cases \
+  --connector-opt cases=<path>/cases.jsonl \
+  --repo <replay-dir> --work-root <work-root>
+```
+
+Nothing goes back to the source: `deliver` writes `<out>/<task id>.json` (status, the chosen run's
+summary and adopted harness) and `<out>/<task id>.diff`. `out` defaults to `replay/` next to the
+first cases file. The judge runs the `verify <n>` criteria in the chosen run's worktree and counts
+those that exit 0.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `cases` | required | A `cases.jsonl` path, or several separated by commas |
+| `out` | `replay/` next to the first file | Where the results go |
+| `include` | `sent-back` | `sent-back` or `all` |
+| `worker` | the newest | The worker.md version (12 hex characters) to replay |
+| `dependent` | `false` | Also take cases with `depends_on` |
+
+Compare the adopted harness (`harness_dir` in the result) with worker.md and the CLAUDE.md files to
+decide what to change in Atelier; a person makes that change in a pull request.
+
+## Rework report
+
+`atelier-rework-report` reads Atelier's `runs.jsonl` (or every one in the archive with
+`--archive`) and prints the first-pass rate, the rework rate and the stop rate; the causes of
+rework (`spec`, `convention`, `scope` and `memory` on the instruction side, `model`, `env`); how
+often shared memory was misused, listed refs were not read and "Do not touch" files changed; the
+same rates per worker.md version and per first model; and the latest rows with an
+instruction-side cause, which are the candidates to replay. `--json` prints the same as JSON.
+
+```sh
+atelier-rework-report --archive
+```
 
 ## The `--root` rule
 
