@@ -460,7 +460,7 @@ included, as medians per worker.md version, per first model and per first tier. 
 share of tokens lost to reworks and unusable attempts, where the overall share also counts PBIs
 whose attempts were all `使えず`, and the share of input read from the cache. When a `cases.jsonl` from Atelier's `export_cases.py` sits next to a
 `runs.jsonl`, the PBIs are also split by the number of Targets, the number of refs and the
-length of the text the worker was given, and the heaviest PBIs are listed with their size. A
+length of worker.md, the PBI and the refs' gists, and the heaviest PBIs are listed with their size. A
 large PBI that was sent back is a candidate to split; a long text with a first pass is a
 candidate to trim from the always-on instructions or the refs.
 

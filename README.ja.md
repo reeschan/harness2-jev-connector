@@ -442,8 +442,8 @@ harness2-intake --connector atelier-cases \
 使えず・差し戻しも含めた全実行の秒・ステップ・トークンを足し、worker.md の版別・最初のモデル別・
 最初の tier 別に中央値を並べます。差し戻しと使えずで使ったトークンの割合 (全体の割合には
 「使えず」だけの PBI も入れます) と、入力のうちキャッシュから読んだ割合も出します。`runs.jsonl` の隣に
-Atelier の `export_cases.py` が書いた `cases.jsonl` があれば、Targets の数・Refs の数・実装担当に
-渡した文章の文字数でも分け、重い PBI を大きさと一緒に並べます。大きくて差し戻された PBI は
+Atelier の `export_cases.py` が書いた `cases.jsonl` があれば、Targets の数・Refs の数・worker.md・
+PBI・Refs の要旨の文字数でも分け、重い PBI を大きさと一緒に並べます。大きくて差し戻された PBI は
 分ける候補、文章が長いのに一発合格した PBI は常に読ませる指示や Refs を削る候補です。
 
 ```sh

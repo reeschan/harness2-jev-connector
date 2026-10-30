@@ -23,7 +23,7 @@
   全体に占める割合 (やり直しで失った分)。全体の割合には「使えず」だけの PBI のトークンも入れる (PBI ごとの表と中央値には
   入れない)。キャッシュ読みの割合は tokens.cache_read / (input + cache_read)。
   大きさ: runs.jsonl と同じフォルダに cases.jsonl (Atelier の export_cases.py) があれば、その size を PBI に付ける。
-  Targets の数・Refs の数・実装担当に渡した文章の文字数 (worker.md・PBI・brief・Refs の要旨) と最初の tier で分ける。
+  Targets の数・Refs の数・文章の文字数 (worker.md・最初の実行のときの PBI・PBI に書いた Refs の要旨) と最初の tier で分ける。
   重い PBI: トークンの多い順。大きいのに差し戻されたものは PBI を分ける候補、Refs や文章が長いのに一発合格のものは
   渡す文章を削る候補として見る。
 """
@@ -150,7 +150,7 @@ def bucket(n, edges: tuple[int, ...]) -> str:
 
 def text_chars(size: dict | None):
     chars = (size or {}).get("chars") or {}
-    return total(chars.get(k) for k in ("worker", "pbi", "brief", "refs"))
+    return total(chars.get(k) for k in ("worker", "pbi", "refs"))
 
 
 def pbi_stats(pbi_rows: list[dict], size: dict | None = None) -> dict | None:
@@ -433,7 +433,7 @@ def table(report: dict) -> str:
         )
         lines += group_table("Refs の数別", "Refs", "refs", cost["by_refs"])
         lines += group_table(
-            "実装担当に渡した文章の文字数別 (worker.md・PBI・brief・Refs の要旨)",
+            "文章の文字数別 (worker.md・PBI・Refs の要旨)",
             "文字数",
             "chars",
             cost["by_text_chars"],

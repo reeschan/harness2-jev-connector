@@ -131,13 +131,13 @@ class ReworkReportTest(unittest.TestCase):
                 "tier": "sonnet",
                 "targets": 1,
                 "refs": 0,
-                "chars": {"worker": 3000, "pbi": 500, "brief": None, "refs": 0},
+                "chars": {"worker": 3000, "pbi": 500, "refs": 0},
             },
             ("app", "app:main:W-001", "PBI-002"): {
                 "tier": "haiku",
                 "targets": 5,
                 "refs": 3,
-                "chars": {"worker": 3000, "pbi": 4000, "brief": 2000, "refs": 300},
+                "chars": {"worker": 3000, "pbi": 4000, "refs": 300},
             },
         }
         report = rework_report.summarize(rows, sizes=sizes)
@@ -151,11 +151,11 @@ class ReworkReportTest(unittest.TestCase):
         self.assertEqual([g["pbis"] for g in cost["by_tier"]], [2, 2])
         self.assertEqual([g["targets"] for g in cost["by_targets"]], ["1", "4+"])
         self.assertEqual([g["refs"] for g in cost["by_refs"]], ["0", "3+"])
-        self.assertEqual([g["chars"] for g in cost["by_text_chars"]], ["0-3999", "8000-15999"])
+        self.assertEqual([g["chars"] for g in cost["by_text_chars"]], ["0-3999", "4000-7999"])
         self.assertEqual([h["pbi"] for h in cost["heavy"]], ["PBI-002", "PBI-001", "PBI-006"])
         heavy = cost["heavy"][0]
         self.assertEqual((heavy["tokens"], heavy["seconds"], heavy["attempts"]), (4000, 350, 3))
-        self.assertEqual((heavy["targets"], heavy["chars"], heavy["first_pass"]), (5, 9300, False))
+        self.assertEqual((heavy["targets"], heavy["chars"], heavy["first_pass"]), (5, 7300, False))
         text = rework_report.table(report)
         self.assertIn("差し戻しと使えずで使ったトークンの割合 70%", text)
         self.assertIn("| app PBI-002 | 4,000 | 350 |", text)
