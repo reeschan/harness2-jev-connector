@@ -91,8 +91,12 @@ CREDENTIAL_NAMES = frozenset(
 )
 
 ANSWER_FILE = "answer.md"
-# The directory under the config root where Jev keeps its home.
+# The directory under the config root where Atelier (formerly Jev) keeps its home, and the old
+# name Atelier still reads when the new one does not exist (common.resolve_home of Atelier).
+ATELIER_HOME_DIRNAME = "atelier"
 JEV_HOME_DIRNAME = "pbi-orchestration-jev"
+# The variables Atelier reads its home from, in its order: ATELIER_HOME, then the old names.
+HOME_VARIABLES = ("ATELIER_HOME", "PBI_HOME", "PBI_TEMPLATES_HOME")
 
 OUTCOME_OK = "合格"
 OUTCOME_UNAVAILABLE = "使えず"
@@ -433,18 +437,25 @@ def child_environment(
     """
     env = {k: v for k, v in base.items() if not is_credential(k)}
     if config_dir is not None:
-        # Jev finds its home (routing, templates, agents.json) through XDG_CONFIG_HOME unless
-        # PBI_HOME is set; pin it to the home the user's environment points at before
-        # XDG_CONFIG_HOME is redirected below.
-        if not env.get("PBI_HOME") and not env.get("PBI_TEMPLATES_HOME"):
+        # Atelier finds its home (routing, templates, agents.json) through XDG_CONFIG_HOME unless
+        # one of HOME_VARIABLES is set; pin ATELIER_HOME to the home the user's environment
+        # points at before XDG_CONFIG_HOME is redirected below.
+        if not any(env.get(name) for name in HOME_VARIABLES):
             xdg = env.get("XDG_CONFIG_HOME")
             root = Path(xdg).expanduser() if xdg else Path.home() / ".config"
-            env["PBI_HOME"] = str(root / JEV_HOME_DIRNAME)
+            env["ATELIER_HOME"] = str(atelier_home(root))
         for name in OPENCODE_INLINE_VARIABLES:
             env.pop(name, None)
         for name in OPENCODE_CONFIG_VARIABLES:
             env[name] = str(config_dir)
     return env
+
+
+def atelier_home(root: Path) -> Path:
+    """Atelier's home under the config root: `atelier`, or the old `pbi-orchestration-jev` when
+    only that one exists (the same choice Atelier's common.resolve_home makes)."""
+    new, old = root / ATELIER_HOME_DIRNAME, root / JEV_HOME_DIRNAME
+    return old if not new.exists() and old.is_dir() else new
 
 
 def _flag(value: bool | str | None, default: bool) -> bool:
