@@ -15,7 +15,7 @@ classifiers = [
     "Operating System :: POSIX",
 ]
 dependencies = [
-    "harness2 @ git+https://github.com/reeschan/harness2.git@b3f2516906029cc3a2be7aebb354704e18a49ff0",
+    "harness2 @ git+https://github.com/reeschan/harness2.git@adeb583936c3e68e5a6ac5289d66163312bba9e4",
 ]
 
 [project.scripts]
