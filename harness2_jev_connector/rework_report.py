@@ -20,7 +20,8 @@
   この表で比べる。atelier-cases で作り直した結果とあわせて、指示を直すかを決める。
   時間とトークン: PBI ごとに、使えず・差し戻しも含めた全実行の time.seconds・steps・tokens を足す (分からない実行は
   足さない)。表は中央値。差し戻しのトークン割合は、最初に成果物を出した実行より後の実行と「使えず」の実行のトークンが
-  全体に占める割合 (やり直しで失った分)。キャッシュ読みの割合は tokens.cache_read / (input + cache_read)。
+  全体に占める割合 (やり直しで失った分)。全体の割合には「使えず」だけの PBI のトークンも入れる (PBI ごとの表と中央値には
+  入れない)。キャッシュ読みの割合は tokens.cache_read / (input + cache_read)。
   大きさ: runs.jsonl と同じフォルダに cases.jsonl (Atelier の export_cases.py) があれば、その size を PBI に付ける。
   Targets の数・Refs の数・実装担当に渡した文章の文字数 (worker.md・PBI・brief・Refs の要旨) と最初の tier で分ける。
   重い PBI: トークンの多い順。大きいのに差し戻されたものは PBI を分ける候補、Refs や文章が長いのに一発合格のものは
@@ -38,6 +39,7 @@ CAUSES = ("spec", "convention", "scope", "memory", "model", "env")
 PROMPT_CAUSES = ("spec", "convention", "scope", "memory")
 
 UNAVAILABLE = "使えず"
+CASE_SCHEMA = "atelier.case/1"
 
 
 def archive_root() -> Path:
@@ -63,7 +65,11 @@ def load_sizes(paths: list[Path]) -> dict:
                 c = json.loads(line)
             except ValueError:
                 continue
-            if isinstance(c, dict) and isinstance(c.get("size"), dict):
+            if (
+                isinstance(c, dict)
+                and c.get("schema") == CASE_SCHEMA
+                and isinstance(c.get("size"), dict)
+            ):
                 sizes[(c.get("repo"), c.get("work_key"), c.get("pbi"))] = c["size"]
     return sizes
 
@@ -171,7 +177,7 @@ def pbi_stats(pbi_rows: list[dict], size: dict | None = None) -> dict | None:
         "steps": total(r.get("steps") for r in pbi_rows),
         "tokens": total(tokens_of(r) for r in pbi_rows),
         "wasted_tokens": total(tokens_of(r) for r in wasted) or 0,
-        "tier": (size or {}).get("tier") or delivered[0].get("tier"),
+        "tier": (size or {}).get("tier") or pbi_rows[0].get("tier"),
         "size": size,
     }
 
@@ -200,6 +206,18 @@ def summarize_group(stats: list[dict]) -> dict:
             sum(s["tokens"] for s in stats if s["tokens"]),
         ),
     }
+
+
+def overall_wasted_share(pbis: dict, stats: dict) -> float | None:
+    """全体の差し戻しのトークン割合。「使えず」だけの PBI のトークンも全部失った分に入れる。"""
+    wasted = spent = 0
+    for key, pbi_rows in pbis.items():
+        tokens = total(tokens_of(r) for r in pbi_rows)
+        if not tokens:
+            continue
+        spent += tokens
+        wasted += stats[key]["wasted_tokens"] if key in stats else tokens
+    return rate(wasted, spent)
 
 
 def grouped(stats: list[dict], key, name: str) -> list[dict]:
@@ -276,7 +294,10 @@ def summarize(rows: list[dict], candidates: int = 10, sizes: dict | None = None)
     return {
         "rows": len(rows),
         "pbis": len(stats),
-        "overall": summarize_group(list(stats.values())),
+        "overall": {
+            **summarize_group(list(stats.values())),
+            "rework_token_share": overall_wasted_share(pbis, stats),
+        },
         "causes": cause_counts,
         "sent_back_rows": len(sent),
         "prompt_side_share": rate(prompt_side, attributed),

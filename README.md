@@ -454,10 +454,11 @@ often shared memory was misused, listed refs were not read and "Do not touch" fi
 same rates per worker.md version and per first model; and the latest rows with an
 instruction-side cause, which are the candidates to replay. `--json` prints the same as JSON.
 
-It also shows time and tokens: per PBI, the seconds, steps and tokens of every attempt added
-up (unusable and reworked ones included), as medians per worker.md version, per first model and
-per first tier, with the share of tokens lost to reworks and unusable attempts and the share of
-input read from the cache. When a `cases.jsonl` from Atelier's `export_cases.py` sits next to a
+It also shows time and tokens: for each judged PBI (one with at least one result other than
+`使えず`), the seconds, steps and tokens of all its attempts added up, unusable and reworked ones
+included, as medians per worker.md version, per first model and per first tier. It also gives the
+share of tokens lost to reworks and unusable attempts, where the overall share also counts PBIs
+whose attempts were all `使えず`, and the share of input read from the cache. When a `cases.jsonl` from Atelier's `export_cases.py` sits next to a
 `runs.jsonl`, the PBIs are also split by the number of Targets, the number of refs and the
 length of the text the worker was given, and the heaviest PBIs are listed with their size. A
 large PBI that was sent back is a candidate to split; a long text with a first pass is a

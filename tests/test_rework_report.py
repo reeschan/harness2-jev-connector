@@ -122,6 +122,9 @@ class ReworkReportTest(unittest.TestCase):
                 tier="haiku",
             ),
             row("PBI-003", "PBI-003", "合格"),
+            row("PBI-005", "PBI-005", "使えず", tokens=5000, tier="opus"),
+            row("PBI-006", "PBI-006", "使えず", tokens=100, tier="haiku"),
+            row("PBI-006", "PBI-006", "合格", attempt=2, tokens=100),
         ]
         sizes = {
             ("app", "app:main:W-001", "PBI-001"): {
@@ -139,21 +142,22 @@ class ReworkReportTest(unittest.TestCase):
         }
         report = rework_report.summarize(rows, sizes=sizes)
         o = report["overall"]
-        self.assertEqual((o["median_seconds"], o["median_tokens"]), (225, 2500))
-        self.assertAlmostEqual(o["rework_token_share"], 2000 / 5000)
+        self.assertEqual((o["median_seconds"], o["median_tokens"]), (225, 1000))
+        self.assertAlmostEqual(o["rework_token_share"], (2000 + 5000 + 100) / (5000 + 5000 + 200))
         cost = report["cost"]
         self.assertAlmostEqual(cost["token_parts"]["cache_read_share"], 0.5)
         self.assertEqual(cost["pbis_with_size"], 2)
         self.assertEqual([g["tier"] for g in cost["by_tier"]], ["haiku", "sonnet"])
+        self.assertEqual([g["pbis"] for g in cost["by_tier"]], [2, 2])
         self.assertEqual([g["targets"] for g in cost["by_targets"]], ["1", "4+"])
         self.assertEqual([g["refs"] for g in cost["by_refs"]], ["0", "3+"])
         self.assertEqual([g["chars"] for g in cost["by_text_chars"]], ["0-3999", "8000-15999"])
-        self.assertEqual([h["pbi"] for h in cost["heavy"]], ["PBI-002", "PBI-001"])
+        self.assertEqual([h["pbi"] for h in cost["heavy"]], ["PBI-002", "PBI-001", "PBI-006"])
         heavy = cost["heavy"][0]
         self.assertEqual((heavy["tokens"], heavy["seconds"], heavy["attempts"]), (4000, 350, 3))
         self.assertEqual((heavy["targets"], heavy["chars"], heavy["first_pass"]), (5, 9300, False))
         text = rework_report.table(report)
-        self.assertIn("差し戻しと使えずで使ったトークンの割合 40%", text)
+        self.assertIn("差し戻しと使えずで使ったトークンの割合 70%", text)
         self.assertIn("| app PBI-002 | 4,000 | 350 |", text)
 
     def test_cli_reads_the_archive(self):
@@ -166,10 +170,21 @@ class ReworkReportTest(unittest.TestCase):
             (group / "cases.jsonl").write_text(
                 json.dumps(
                     {
+                        "schema": "atelier.case/1",
                         "repo": "app",
                         "work_key": "app:main:W-001",
                         "pbi": "PBI-001",
                         "size": {"tier": "sonnet", "targets": 2, "refs": 1, "chars": {}},
+                    }
+                )
+                + "\n"
+                + json.dumps(
+                    {
+                        "schema": "other/1",
+                        "repo": "app",
+                        "work_key": "app:main:W-001",
+                        "pbi": "PBI-002",
+                        "size": {"targets": 9},
                     }
                 )
                 + "\nnot json\n",
@@ -186,6 +201,7 @@ class ReworkReportTest(unittest.TestCase):
             self.assertIn("| v1 | 2 |", r.stdout)
             self.assertIn("Targets の数別 (cases.jsonl のある 1 件)", r.stdout)
             self.assertIn("| 2-3 | 1 |", r.stdout)
+            self.assertNotIn("| 4+ |", r.stdout)
             missing = subprocess.run(
                 [
                     sys.executable,
